@@ -1,6 +1,11 @@
 from random import sample
 
 
+class Joueur:
+    def __init__(self, nom):
+        self.nom = nom
+
+
 def paquet():
     """La fonction créé un paquet standard de 52 cartes
     sous la forme d'une liste de tuples"""
@@ -50,3 +55,16 @@ def pioche_carte(pioche, *args):
     for i in range(n):
         cartes_pioches.append(pioche[0])
         pioche.pop(0)
+
+
+def init_joueurs(n):
+    liste_joueurs = []
+    for i in range(n):
+        nom = str(input("Entrez le nom du joueur {} : ".format(i+1)))
+        liste_joueurs.append(Joueur(nom))
+    return liste_joueurs
+
+
+liste_joueurs = init_joueurs(4)
+for joueur in liste_joueurs:
+    print(joueur.nom)
