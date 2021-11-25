@@ -2,8 +2,9 @@ from random import sample
 
 
 class Joueur:
-    def __init__(self, nom):
+    def __init__(self, nom, score):
         self.nom = nom
+        self.score = score
 
 
 def paquet():
@@ -57,14 +58,16 @@ def pioche_carte(pioche, *args):
         pioche.pop(0)
 
 
-def init_joueurs(n):
+def init_joueurs(nb_joueurs, *args):
+    """Fonction qui créé les différentes instances des joueurs"""
+
+    if len(args) > 0:
+        score_défaut = args[0]
+    else:
+        score_défaut = 0
+
     liste_joueurs = []
-    for i in range(n):
+    for i in range(nb_joueurs):
         nom = str(input("Entrez le nom du joueur {} : ".format(i+1)))
-        liste_joueurs.append(Joueur(nom))
+        liste_joueurs.append(Joueur(nom, score_défaut))
     return liste_joueurs
-
-
-liste_joueurs = init_joueurs(4)
-for joueur in liste_joueurs:
-    print(joueur.nom)
