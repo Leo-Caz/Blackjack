@@ -29,28 +29,49 @@ class Carte:
     def __str__(self):
         return f"{self.VALEURS[self.valeur - 1]}{self.COULEURS[self.couleur]}"
 
+    def score(self):
+        """ Renvoie la valeur de la carte. """
+        return min(self.valeur, 10)
+
 
 class Joueur:
-    valeurs = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
-    couleurs = list("♠♣♥♦")
-
-    def __init__(self, nom, score):
+    def __init__(self, nom, score = 0):
         self.nom = nom
-        self.score = score
         self.cartes = []
+        self.score_initial = score
 
     def __str__(self):
         main = ""
         for carte in self.cartes:
             main += f" {carte}"
-        return f"{self.nom} :{main} => {self.score}"
+        return f"{self.nom} :{main} => {self.score()}"
 
     def pioche_carte(self, nb_cartes = 1):
         """ Permet au joueur de piocher une ou plusieurs cartes. """
         for _ in range(nb_cartes):
-            self.cartes.append(pioche[0])
-            self.score += valeur_carte(self.cartes[-1])
-            pioche.pop(0)
+            self.cartes.append(pioche.pop(0))
+
+    def score(self):
+        """ Calcule le score de la main du joueur. """
+        scores_possibles = [ self.score_initial ]
+
+        def incremente(tab, val):
+            for i in range(len(tab)):
+                tab[i] += val
+
+        for carte in self.cartes:
+            if carte.score() != 1:
+                incremente(scores_possibles, carte.score())
+            else:  # la carte est un as, deux possibilités de score: 1 ou 11
+                temp_score = scores_possibles.copy()
+                incremente(scores_possibles, 1)
+                incremente(temp_score, 11)
+                scores_possibles.extend(temp_score)
+
+        for score in sorted(scores_possibles, reverse=True):
+            if score <= 21:
+                return score
+        return 0  # valeur arbitraire en cas de défaite
 
 
 def paquet():
@@ -60,20 +81,6 @@ def paquet():
         for valeur in range(13):
             cartes.append(Carte(valeur, couleur))
     return cartes
-
-
-def valeur_carte(carte):
-    """ Renvoie la valeur d'une carte. """
-    if carte.valeur == 1:  # L'as vaut 1 ou 11, au choix
-        reponse = 0
-        while reponse != 1 or reponse != 11:
-            reponse = int(input("Vous venez de piocher un as, voulez-vous qu'il vaille 1 ou 11? "))
-        return reponse
-
-    if carte.valeur >= 11:  # Valet, Dame et Roi valent tous 10
-        return 10
-
-    return carte.valeur  # renvoie la valeur de la carte
 
 
 def premier_tour():
@@ -88,5 +95,10 @@ def premier_tour():
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs)
-
 premier_tour()
+
+# test algo
+# j = Joueur("test")
+# j.cartes = [ Carte(1, 1), Carte(5, 2), Carte(1, 3) ]
+# assert j.score() == 17
+# print(j)
