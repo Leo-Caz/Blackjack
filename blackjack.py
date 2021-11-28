@@ -18,6 +18,18 @@ def init_joueurs(nombre, score = 0):
     return rv_liste_joueurs
 
 
+class Carte:
+    VALEURS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
+    COULEURS = list("♠♣♥♦")
+
+    def __init__(self, valeur, couleur):
+        self.valeur = valeur
+        self.couleur = couleur
+
+    def __str__(self):
+        return f"{self.VALEURS[self.valeur - 1]}{self.COULEURS[self.couleur]}"
+
+
 class Joueur:
     valeurs = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
     couleurs = list("♠♣♥♦")
@@ -30,7 +42,7 @@ class Joueur:
     def __str__(self):
         main = ""
         for carte in self.cartes:
-            main += " " + self.valeurs[carte[0] - 1] + self.couleurs[carte[1]]
+            main += f" {carte}"
         return f"{self.nom} :{main} => {self.score}"
 
     def pioche_carte(self, nb_cartes = 1):
@@ -46,22 +58,22 @@ def paquet():
     cartes = []
     for couleur in range(4):
         for valeur in range(13):
-            cartes.append((valeur, couleur))
+            cartes.append(Carte(valeur, couleur))
     return cartes
 
 
 def valeur_carte(carte):
     """ Renvoie la valeur d'une carte. """
-    if carte[0] == 1:  # L'as vaut 1 ou 11, au choix
+    if carte.valeur == 1:  # L'as vaut 1 ou 11, au choix
         reponse = 0
         while reponse != 1 or reponse != 11:
             reponse = int(input("Vous venez de piocher un as, voulez-vous qu'il vaille 1 ou 11? "))
         return reponse
 
-    if carte[0] >= 11:  # Valet, Dame et Roi valent tous 10
+    if carte.valeur >= 11:  # Valet, Dame et Roi valent tous 10
         return 10
 
-    return carte[0]  # renvoie la valeur de la carte
+    return carte.valeur  # renvoie la valeur de la carte
 
 
 def premier_tour():
