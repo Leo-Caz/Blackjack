@@ -51,8 +51,6 @@ class Joueur:
                 incremente(temp_score, 11)
                 scores_possibles.extend(temp_score)
 
-        print(scores_possibles)
-
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
@@ -94,10 +92,20 @@ def premier_tour():
         print(joueur)
 
 
+def gagnant():
+    meilleur_score = 0
+    for joueur in liste_joueurs:
+        if joueur.score() > meilleur_score:
+            meilleur_score = joueur.score()
+            meilleur_joueur = joueur
+    print(f"Le gagnant est {meilleur_joueur.nom} avec un score de {meilleur_score}")
+
+
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs)
 premier_tour()
+gagnant()
 
 # test algo
 # j = Joueur("test")
