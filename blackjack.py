@@ -1,73 +1,80 @@
+#!/bin/env python3
 from random import sample
+
+def init_pioche(nb_paquets):
+    """ Initialise la pioche en mélangeant les paquets de cartes. """
+    rv_pioche = []
+    for _ in range(nb_paquets):
+        rv_pioche.extend(sample(paquet(), k=52))
+    return rv_pioche
+
+
+def init_joueurs(nombre, score = 0):
+    """ Créé les différentes instances des joueurs. """
+    rv_liste_joueurs = []
+    for i in range(nombre):
+        nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
+        rv_liste_joueurs.append(Joueur(nom, score))
+    return rv_liste_joueurs
 
 
 class Joueur:
+    valeurs = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
+    couleurs = list("♠♣♥♦")
+
     def __init__(self, nom, score):
         self.nom = nom
         self.score = score
+        self.cartes = []
+
+    def __str__(self):
+        main = ""
+        for carte in self.cartes:
+            main += " " + self.valeurs[carte[0] - 1] + self.couleurs[carte[1]]
+        return f"{self.nom} :{main} => {self.score}"
+
+    def pioche_carte(self, nb_cartes = 1):
+        """ Permet au joueur de piocher une ou plusieurs cartes. """
+        for _ in range(nb_cartes):
+            self.cartes.append(pioche[0])
+            self.score += valeur_carte(self.cartes[-1])
+            pioche.pop(0)
 
 
 def paquet():
-    """La fonction créé un paquet standard de 52 cartes
-    sous la forme d'une liste de tuples"""
-
+    """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
     cartes = []
-    for couleur_carte in range(4):
-        for valeur_carte in range(13):
-            cartes.append((valeur_carte, couleur_carte))
+    for couleur in range(4):
+        for valeur in range(13):
+            cartes.append((valeur, couleur))
     return cartes
 
 
-def valeur_cartes(carte):
-    """Cette fonction renvoie la valeur d'une carte"""
-
+def valeur_carte(carte):
+    """ Renvoie la valeur d'une carte. """
     if carte[0] == 1:  # L'as vaut 1 ou 11, au choix
         reponse = 0
         while reponse != 1 or reponse != 11:
-            reponse = int(input("Vous venez de piocher un as, voulez-vous qu'il valle 1 ou 11? "))
+            reponse = int(input("Vous venez de piocher un as, voulez-vous qu'il vaille 1 ou 11? "))
         return reponse
 
-    if carte[0] >= 11:  # Valet, Dame et Roi vallent tous 10
+    if carte[0] >= 11:  # Valet, Dame et Roi valent tous 10
         return 10
 
-    return carte[0]  # On renvoit la valeur de la carte.
+    return carte[0]  # renvoie la valeur de la carte
 
 
-def init_pioche(n):
-    """Initialise la pioche en mélangeant les paquet de cartes"""
+def premier_tour():
+    """ Effectue le premier tour et fait piocher les deux premières cartes
+    à chaque joueur. Potentiellement une fonction temporaire. """
 
-    pioche = []
-    for i in range(n):
-        pioche.extend(sample(paquet(), k=52))
-    return pioche
-
-
-def pioche_carte(pioche, *args):
-    """Fonction qui permet de piocher une carte, il y a
-    un argument optionel au cas où on veuille plusieurs
-    cartes en même temps"""
-
-    if len(args) > 0:
-        n = args[0]
-    else:
-        n = 1
-
-    cartes_pioches = []
-    for i in range(n):
-        cartes_pioches.append(pioche[0])
-        pioche.pop(0)
+    for joueur in liste_joueurs:
+        joueur.pioche_carte(2)
+        print(joueur)
 
 
-def init_joueurs(nb_joueurs, *args):
-    """Fonction qui créé les différentes instances des joueurs"""
+pioche = init_pioche(2)
+nb_joueurs = int(input("Entrez le nombre de joueurs : "))
+liste_joueurs = init_joueurs(nb_joueurs)
 
-    if len(args) > 0:
-        score_défaut = args[0]
-    else:
-        score_défaut = 0
-
-    liste_joueurs = []
-    for i in range(nb_joueurs):
-        nom = str(input("Entrez le nom du joueur {} : ".format(i+1)))
-        liste_joueurs.append(Joueur(nom, score_défaut))
-    return liste_joueurs
+premier_tour()
