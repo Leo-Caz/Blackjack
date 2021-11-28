@@ -1,23 +1,6 @@
 #!/bin/env python3
 from random import sample
 
-def init_pioche(nb_paquets):
-    """ Initialise la pioche en mélangeant les paquets de cartes. """
-    rv_pioche = []
-    for _ in range(nb_paquets):
-        rv_pioche.extend(sample(paquet(), k=52))
-    return rv_pioche
-
-
-def init_joueurs(nombre, score = 0):
-    """ Créé les différentes instances des joueurs. """
-    rv_liste_joueurs = []
-    for i in range(nombre):
-        nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
-        rv_liste_joueurs.append(Joueur(nom, score))
-    return rv_liste_joueurs
-
-
 class Carte:
     VALEURS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
     COULEURS = list("♠♣♥♦")
@@ -68,6 +51,8 @@ class Joueur:
                 incremente(temp_score, 11)
                 scores_possibles.extend(temp_score)
 
+        print(scores_possibles)
+
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
@@ -81,6 +66,23 @@ def paquet():
         for valeur in range(13):
             cartes.append(Carte(valeur, couleur))
     return cartes
+
+
+def init_pioche(nb_paquets):
+    """ Initialise la pioche en mélangeant les paquets de cartes. """
+    rv_pioche = []
+    for _ in range(nb_paquets):
+        rv_pioche.extend(sample(paquet(), k=52))
+    return rv_pioche
+
+
+def init_joueurs(nombre, score = 0):
+    """ Créé les différentes instances des joueurs. """
+    rv_liste_joueurs = []
+    for i in range(nombre):
+        nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
+        rv_liste_joueurs.append(Joueur(nom, score))
+    return rv_liste_joueurs
 
 
 def premier_tour():
