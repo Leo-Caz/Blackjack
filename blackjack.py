@@ -22,6 +22,7 @@ class Joueur:
         self.nom = nom
         self.cartes = []
         self.score_initial = score
+        self.joue = True
 
     def __str__(self):
         main = ""
@@ -54,14 +55,35 @@ class Joueur:
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
-        return 0  # valeur arbitraire en cas de défaite
+        return sorted(scores_possibles)[-1]  # valeur arbitraire en cas de défaite
+
+    def tour_joueur(self):
+        print("-------------")
+        print(f"Tour de {self.nom} \n{self}")
+        if self.score() == 21:
+            print("Vous avez gagné!!")
+
+        reponse = ""
+        while reponse not in ["pioche", "stop"]:
+            reponse = input("Voulez-vous piocher une carte (pioche) ou arrêter de jouer (stop)? : ")
+
+        if reponse == "pioche":
+            self.pioche_carte()
+            print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
+            if self.score() == 21:
+                print("Vous avez gagné!!")
+            elif self.score() > 21:
+                print("Vous avez perdu!!")
+                self.joue = False
+        else:
+            self.joue = False
 
 
 def paquet():
     """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
     cartes = []
     for couleur in range(4):
-        for valeur in range(13):
+        for valeur in range(1, 14):
             cartes.append(Carte(valeur, couleur))
     return cartes
 
@@ -92,6 +114,13 @@ def premier_tour():
         print(joueur)
 
 
+def partie_finie():
+    for joueur in liste_joueurs:
+        if joueur.joue:
+            return False
+    return True
+
+
 def gagnant():
     meilleur_score = 0
     for joueur in liste_joueurs:
@@ -105,6 +134,12 @@ pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs)
 premier_tour()
+
+while not partie_finie():
+    for joueur in liste_joueurs:
+        if joueur.joue:
+            joueur.tour_joueur()
+
 gagnant()
 
 # test algo
