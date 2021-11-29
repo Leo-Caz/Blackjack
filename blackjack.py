@@ -68,11 +68,14 @@ class Joueur:
 
             if reponse == "pioche":
                 self.pioche_carte()
-                print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
+                # print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
+                print(self)
                 if self.score() == 21:
                     print("Vous avez gagné!!")
-                elif self.score() > 21:
+                    return
+                if self.score() > 21:
                     print("Vous avez perdu!!")
+                    return
 
 
 def paquet():
@@ -112,11 +115,11 @@ def premier_tour():
 
 def gagnant():
     meilleur_score = 0
-    for x in liste_joueurs:
-        if joueur.score() > meilleur_score:
-            meilleur_score = joueur.score()
-            meilleur_joueur = joueur
-    print(f"Le gagnant est {meilleur_joueur.nom} avec un score de {meilleur_score}")
+    for contender in liste_joueurs:
+        if contender.score() > meilleur_score:
+            meilleur_score = contender.score()
+            meilleur_joueur = contender.nom
+    print(f"Le gagnant est {meilleur_joueur} avec un score de {meilleur_score}")
 
 
 pioche = init_pioche(2)
