@@ -22,7 +22,6 @@ class Joueur:
         self.nom = nom
         self.cartes = []
         self.score_initial = score
-        self.joue = True
 
     def __str__(self):
         main = ""
@@ -64,19 +63,16 @@ class Joueur:
             print("Vous avez gagné!!")
 
         reponse = ""
-        while reponse not in ["pioche", "stop"]:
+        while reponse != "stop":
             reponse = input("Voulez-vous piocher une carte (pioche) ou arrêter de jouer (stop)? : ")
 
-        if reponse == "pioche":
-            self.pioche_carte()
-            print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
-            if self.score() == 21:
-                print("Vous avez gagné!!")
-            elif self.score() > 21:
-                print("Vous avez perdu!!")
-                self.joue = False
-        else:
-            self.joue = False
+            if reponse == "pioche":
+                self.pioche_carte()
+                print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
+                if self.score() == 21:
+                    print("Vous avez gagné!!")
+                elif self.score() > 21:
+                    print("Vous avez perdu!!")
 
 
 def paquet():
@@ -114,16 +110,9 @@ def premier_tour():
         print(joueur)
 
 
-def partie_finie():
-    for joueur in liste_joueurs:
-        if joueur.joue:
-            return False
-    return True
-
-
 def gagnant():
     meilleur_score = 0
-    for joueur in liste_joueurs:
+    for x in liste_joueurs:
         if joueur.score() > meilleur_score:
             meilleur_score = joueur.score()
             meilleur_joueur = joueur
@@ -135,10 +124,8 @@ nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs)
 premier_tour()
 
-while not partie_finie():
-    for joueur in liste_joueurs:
-        if joueur.joue:
-            joueur.tour_joueur()
+for joueur in liste_joueurs:
+    joueur.tour_joueur()
 
 gagnant()
 
