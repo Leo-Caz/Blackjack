@@ -56,27 +56,6 @@ class Joueur:
                 return score
         return sorted(scores_possibles)[-1]  # valeur arbitraire en cas de défaite
 
-    def tour_joueur(self):
-        print("-------------")
-        print(f"Tour de {self.nom} \n{self}")
-        if self.score() == 21:
-            print("Vous avez gagné!!")
-
-        reponse = ""
-        while reponse != "stop":
-            reponse = input("Voulez-vous piocher une carte (pioche) ou arrêter de jouer (stop)? : ")
-
-            if reponse == "pioche":
-                self.pioche_carte()
-                # print(f"Vous avez pioché un {self.cartes[-1]}, votre score est maintenant {self.score()}")
-                print(self)
-                if self.score() == 21:
-                    print("Vous avez gagné!!")
-                    return
-                if self.score() > 21:
-                    print("Vous avez perdu!!")
-                    return
-
 
 def paquet():
     """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
@@ -101,6 +80,7 @@ def init_joueurs(nombre, score = 0):
     for i in range(nombre):
         nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
         rv_liste_joueurs.append(Joueur(nom, score))
+    rv_liste_joueurs.append(Joueur("Croupier"))
     return rv_liste_joueurs
 
 
@@ -113,6 +93,27 @@ def premier_tour():
         print(joueur)
 
 
+def tour_joueur(j):
+    print("-------------")
+    print(f"Tour de {j.nom} \n{j}")
+    if j.score() == 21:
+        print("Vous avez gagné!!")
+
+    reponse = ""
+    while reponse != "stop":
+        reponse = input("Voulez-vous piocher une carte (pioche) ou arrêter de jouer (stop)? : ")
+
+        if reponse == "pioche":
+            j.pioche_carte()
+            print(j)
+            if j.score() == 21:
+                print("Vous avez gagné!!")
+                return
+            if j.score() > 21:
+                print("Vous avez perdu!!")
+                return
+
+
 def gagnant():
     meilleur_score = 0
     for contender in liste_joueurs:
@@ -122,13 +123,22 @@ def gagnant():
     print(f"Le gagnant est {meilleur_joueur} avec un score de {meilleur_score}")
 
 
+# def gagnant():
+#     for i, j in enumerate(liste_joueurs):
+#         if i < len(liste_joueurs):
+#             if j.score() <= 21 and j.score() > liste_joueurs[i].score():
+#                 print(f"{j.nom} a gagné")
+#             else:
+#                 print(f"{j.nom} a perdu")
+
+
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs)
 premier_tour()
 
 for joueur in liste_joueurs:
-    joueur.tour_joueur()
+    tour_joueur(joueur)
 
 gagnant()
 
