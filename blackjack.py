@@ -25,13 +25,14 @@ class Joueur:
         self.cartes = []
         self.score_initial = score
         self.argent = argent
-        self.mise = [0]
+        self.mise = 0
+        self.blackjack = False
 
     def __str__(self):
         main = ""
         for carte in self.cartes:
             main += f" {carte}"
-        return f"{self.nom} :{main} => {self.score()} | argent : {self.argent}€"
+        return f"{self.nom} :{main} => {self.score()} | argent : {self.argent} | mise : {self.mise}"
 
     def pioche_carte(self, nb_cartes = 1):
         """ Permet au joueur de piocher une ou plusieurs cartes. """
@@ -45,7 +46,6 @@ class Joueur:
         def incremente(tab, val):
             """ Ajoute la valeur de la carte à tous les scores possibles """
             for i in range(len(tab)):
-            # for i, _ in enumerate(tab): ?
                 tab[i] += val
 
         for carte in self.cartes:
@@ -60,28 +60,13 @@ class Joueur:
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
-        # return sorted(scores_possibles)[-1]  # valeur arbitraire en cas de défaite
         return 0 # valeur arbitraire en cas de défaite
-
-    def paye_mise(self, indice = 0, bonus = 1):
-        """ Le joueur gagne sa mise """
-        self.argent += self.mise[indice] * bonus
-        print(f"Vous avez gagné {self.mise[indice] * bonus}€, vous avez maintenant {self.argent}€")
-        self.mise[indice] = 0
-
-    def deduit_mise(self, indice = 0):
-        """ Le joueur pert sa mise """
-        self.argent -= self.mise[indice]
-        print(f"Vous avez perdu {self.mise[indice]}€, vous avez maintenant {self.argent}€")
-        self.mise[indice] = 0
-
 
 class Croupier(Joueur):
     """ Définie le comportement du croupier """
     def __init__(self, argent):
         super().__init__("Croupier", argent)
         self.mise = [0 for _ in range(nb_joueurs)]
-
 
 def paquet():
     """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
@@ -106,28 +91,42 @@ def init_joueurs(nombre, argent, score = 0):
     for i in range(nombre):
         nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
         rv_liste_joueurs.append(Joueur(nom, argent, score))
-    # rv_liste_joueurs.append(Joueur("Croupier", 99999999))
+    print("-------------")
     return rv_liste_joueurs
 
 
 def premier_tour():
-    """ Effectue le premier tour et fait piocher les deux premières cartes
-    à chaque joueur. Potentiellement une fonction temporaire. """
-
+    """ Demande la mise et fait piocher les deux premières cartes à chaque joueur. """
     for id_joueur, j in enumerate(liste_joueurs):
-        mise = int(input(f"Veuillez miser une somme d'argent (vous avez {j.argent}€) : "))
-        j.mise[0] = mise
+        mise = int(input(f"{j.nom}, veuillez miser une somme d'argent (vous avez {j.argent}€) : "))
+        j.mise = mise
         croupier.mise[id_joueur] = mise
         j.pioche_carte(2)
         print(j)
+
+        if j.score() == 21:
+            print("Vous avez gagné!!")
+            j.blackjack = True
+
+
+def tour_complet():
+    croupier.pioche_carte()
+    print(croupier)
+    premier_tour()
+    for joueur in liste_joueurs:
+        if joueur.score() != 21:
+            tour_joueur(joueur)
+
+    croupier.pioche_carte()
+    print(croupier)
+
+    regler_mises()
 
 
 def tour_joueur(j):
     """ Effectue le tour de chaque joueur """
     print("-------------")
-    print(f"Tour de {j.nom} \n{j}")
-    if j.score() == 21:
-        print("Vous avez gagné!!")
+    print(f"Tour de {j.nom} :\n{j}")
 
     reponse = ""
     while reponse != "stop":
@@ -139,42 +138,40 @@ def tour_joueur(j):
             if j.score() == 21:
                 print("Vous avez gagné!!")
                 return
-            if j.score() > 21:
+            if j.score() == 0:
                 print("Vous avez perdu!!")
                 return
 
 
 def regler_mises():
-    """ Détermine si chaque joueur a gagné ou non contre croupier et règle les mises en fonction """
+    """ Règle les comptes en fin de partie """
+    print("-------------")
     for id_joueur, j in enumerate(liste_joueurs):
-        if j.score() == croupier.score():
-            j.mise[0] = 0
-            croupier.mise[id_joueur] = 0
-            print(f"Égalité entre {j} et le croupier")
+        if j.blackjack is True:
+            j.argent += round(j.mise * 1.5)
+            croupier.argent -= croupier.mise
 
         elif j.score() > croupier.score():
-            j.paye_mise()
-            croupier.deduit_mise(id_joueur)
+            j.argent += j.mise
+            croupier.argent -= croupier.mise[id_joueur]
+            print(f"{j.nom} a gagné {j.mise}€ et a maintenant {j.argent}€")
 
-        else:
-            j.deduit_mise()
-            croupier.paye_mise(id_joueur)
+        elif j.score() < croupier.score():
+            j.argent -= j.mise
+            croupier.argent += croupier.mise[id_joueur]
+            print(f"{j.nom} a perdu {j.mise}€ et a maintenant {j.argent}€")
+
+        else:  # en cas d'égalité
+            print(f"Égalité entre {j.nom} et le croupier")
 
 
+# Initialisation:
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs, 1000)
 croupier = Croupier(10000)
-premier_tour()
 
-croupier.pioche_carte()
-for joueur in liste_joueurs:
-    tour_joueur(joueur)
-
-croupier.pioche_carte()
-print(croupier)
-
-regler_mises()
+tour_complet()
 
 # test algo
 # j_test = Joueur("test", 500)
