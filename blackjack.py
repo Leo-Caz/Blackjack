@@ -2,6 +2,7 @@
 from random import sample
 
 class Carte:
+    """ Définie le fonctionnement des cartes """
     VALEURS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
     COULEURS = list("♠♣♥♦")
 
@@ -18,16 +19,19 @@ class Carte:
 
 
 class Joueur:
-    def __init__(self, nom, score = 0):
+    """ Définie les méthodes et propriétés des joueurs """
+    def __init__(self, nom, argent, score = 0):
         self.nom = nom
         self.cartes = []
         self.score_initial = score
+        self.argent = argent
+        self.mise = [0]
 
     def __str__(self):
         main = ""
         for carte in self.cartes:
             main += f" {carte}"
-        return f"{self.nom} :{main} => {self.score()}"
+        return f"{self.nom} :{main} => {self.score()} | argent : {self.argent}€"
 
     def pioche_carte(self, nb_cartes = 1):
         """ Permet au joueur de piocher une ou plusieurs cartes. """
@@ -39,7 +43,9 @@ class Joueur:
         scores_possibles = [ self.score_initial ]
 
         def incremente(tab, val):
+            """ Ajoute la valeur de la carte à tous les scores possibles """
             for i in range(len(tab)):
+            # for i, _ in enumerate(tab): ?
                 tab[i] += val
 
         for carte in self.cartes:
@@ -54,7 +60,27 @@ class Joueur:
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
-        return sorted(scores_possibles)[-1]  # valeur arbitraire en cas de défaite
+        # return sorted(scores_possibles)[-1]  # valeur arbitraire en cas de défaite
+        return 0 # valeur arbitraire en cas de défaite
+
+    def paye_mise(self, indice = 0, bonus = 1):
+        """ Le joueur gagne sa mise """
+        self.argent += self.mise[indice] * bonus
+        print(f"Vous avez gagné {self.mise[indice] * bonus}€, vous avez maintenant {self.argent}€")
+        self.mise[indice] = 0
+
+    def deduit_mise(self, indice = 0):
+        """ Le joueur pert sa mise """
+        self.argent -= self.mise[indice]
+        print(f"Vous avez perdu {self.mise[indice]}€, vous avez maintenant {self.argent}€")
+        self.mise[indice] = 0
+
+
+class Croupier(Joueur):
+    """ Définie le comportement du croupier """
+    def __init__(self, argent):
+        super().__init__("Croupier", argent)
+        self.mise = [0 for _ in range(nb_joueurs)]
 
 
 def paquet():
@@ -74,13 +100,13 @@ def init_pioche(nb_paquets):
     return rv_pioche
 
 
-def init_joueurs(nombre, score = 0):
+def init_joueurs(nombre, argent, score = 0):
     """ Créé les différentes instances des joueurs. """
     rv_liste_joueurs = []
     for i in range(nombre):
         nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
-        rv_liste_joueurs.append(Joueur(nom, score))
-    rv_liste_joueurs.append(Joueur("Croupier"))
+        rv_liste_joueurs.append(Joueur(nom, argent, score))
+    # rv_liste_joueurs.append(Joueur("Croupier", 99999999))
     return rv_liste_joueurs
 
 
@@ -88,12 +114,16 @@ def premier_tour():
     """ Effectue le premier tour et fait piocher les deux premières cartes
     à chaque joueur. Potentiellement une fonction temporaire. """
 
-    for joueur in liste_joueurs:
-        joueur.pioche_carte(2)
-        print(joueur)
+    for id_joueur, j in enumerate(liste_joueurs):
+        mise = int(input(f"Veuillez miser une somme d'argent (vous avez {j.argent}€) : "))
+        j.mise[0] = mise
+        croupier.mise[id_joueur] = mise
+        j.pioche_carte(2)
+        print(j)
 
 
 def tour_joueur(j):
+    """ Effectue le tour de chaque joueur """
     print("-------------")
     print(f"Tour de {j.nom} \n{j}")
     if j.score() == 21:
@@ -114,36 +144,43 @@ def tour_joueur(j):
                 return
 
 
-def gagnant():
-    meilleur_score = 0
-    for contender in liste_joueurs:
-        if contender.score() > meilleur_score:
-            meilleur_score = contender.score()
-            meilleur_joueur = contender.nom
-    print(f"Le gagnant est {meilleur_joueur} avec un score de {meilleur_score}")
+def regler_mises():
+    """ Détermine si chaque joueur a gagné ou non contre croupier et règle les mises en fonction """
+    for id_joueur, j in enumerate(liste_joueurs):
+        if j.score() == croupier.score():
+            j.mise[0] = 0
+            croupier.mise[id_joueur] = 0
+            print(f"Égalité entre {j} et le croupier")
 
+        elif j.score() > croupier.score():
+            j.paye_mise()
+            croupier.deduit_mise(id_joueur)
 
-# def gagnant():
-#     for i, j in enumerate(liste_joueurs):
-#         if i < len(liste_joueurs):
-#             if j.score() <= 21 and j.score() > liste_joueurs[i].score():
-#                 print(f"{j.nom} a gagné")
-#             else:
-#                 print(f"{j.nom} a perdu")
+        else:
+            j.deduit_mise()
+            croupier.paye_mise(id_joueur)
 
 
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
-liste_joueurs = init_joueurs(nb_joueurs)
+liste_joueurs = init_joueurs(nb_joueurs, 1000)
+croupier = Croupier(10000)
 premier_tour()
 
+croupier.pioche_carte()
 for joueur in liste_joueurs:
     tour_joueur(joueur)
 
-gagnant()
+croupier.pioche_carte()
+print(croupier)
+
+regler_mises()
 
 # test algo
-# j = Joueur("test")
+# j_test = Joueur("test", 500)
+# print(j_test)
+# j_test.mise.append(50)
+# j_test.deduit_mise()
 # j.cartes = [ Carte(1, 1), Carte(5, 2), Carte(1, 3) ]
 # assert j.score() == 17
-# print(j)
+# print(j_test)
