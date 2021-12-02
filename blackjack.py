@@ -62,11 +62,20 @@ class Joueur:
                 return score
         return 0 # valeur arbitraire en cas de défaite
 
+
 class Croupier(Joueur):
     """ Définie le comportement du croupier """
     def __init__(self, argent):
         super().__init__("Croupier", argent)
         self.mise = [0 for _ in range(nb_joueurs)]
+
+    def __str__(self):
+        main = ""
+        for carte in self.cartes:
+            main += f" {carte}"
+        return f"{self.nom} :{main} => {self.score()} | argent : {self.argent}"
+
+
 
 def paquet():
     """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
@@ -91,36 +100,37 @@ def init_joueurs(nombre, argent, score = 0):
     for i in range(nombre):
         nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
         rv_liste_joueurs.append(Joueur(nom, argent, score))
-    print("-------------")
     return rv_liste_joueurs
 
 
 def premier_tour():
     """ Demande la mise et fait piocher les deux premières cartes à chaque joueur. """
+    joueurs_partis = []
     for id_joueur, j in enumerate(liste_joueurs):
-        mise = int(input(f"{j.nom}, veuillez miser une somme d'argent (vous avez {j.argent}€) : "))
+        mise_valide = False
+        while not mise_valide:
+            print(f"{j.nom}: misez de l'argent (entre 10€ et 1000€)")
+            mise = int(input("vous avez {j.argent}€ (misez 0 pour quitter la table) : "))
+            if MISE_MIN <= mise <= MISE_MAX:
+                mise_valide = True
+
+            elif mise == 0:
+                print(f"{j.nom} a quitté la table.")
+                joueurs_partis.append(j)
+                mise_valide = True
+
         j.mise = mise
         croupier.mise[id_joueur] = mise
         j.pioche_carte(2)
         print(j)
+        print(" ")
 
         if j.score() == 21:
             print("Vous avez gagné!!")
             j.blackjack = True
 
-
-def tour_complet():
-    croupier.pioche_carte()
-    print(croupier)
-    premier_tour()
-    for joueur in liste_joueurs:
-        if joueur.score() != 21:
-            tour_joueur(joueur)
-
-    croupier.pioche_carte()
-    print(croupier)
-
-    regler_mises()
+    for j in joueurs_partis:
+        liste_joueurs.remove(j)
 
 
 def tour_joueur(j):
@@ -166,12 +176,36 @@ def regler_mises():
 
 
 # Initialisation:
+MISE_MIN = 10
+MISE_MAX = 1000
 pioche = init_pioche(2)
 nb_joueurs = int(input("Entrez le nombre de joueurs : "))
 liste_joueurs = init_joueurs(nb_joueurs, 1000)
 croupier = Croupier(10000)
 
-tour_complet()
+# Boucle principale:
+while len(liste_joueurs) > 0 or croupier.argent < MISE_MIN:
+    print("___________________________")
+    croupier.pioche_carte()
+    print(croupier)
+    premier_tour()
+    for joueur in liste_joueurs:
+        if joueur.score() != 21:
+            tour_joueur(joueur)
+
+    croupier.pioche_carte()
+    print(croupier)
+    regler_mises()
+
+    joueurs_perdu = []
+    for joueur in liste_joueurs:
+        joueur.cartes.clear()
+        if joueur.argent < MISE_MIN:
+            joueurs_perdu.append(joueur)
+
+    for joueur in joueurs_perdu:
+        liste_joueurs.remove(joueur)
+    croupier.cartes.clear()
 
 # test algo
 # j_test = Joueur("test", 500)
