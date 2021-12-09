@@ -42,6 +42,7 @@ class Joueur:
         """ Permet au joueur de piocher une ou plusieurs cartes. """
         for _ in range(nb_cartes):
             self.cartes.append(pioche.pop(0))
+            verifie_memoire(self.cartes[-1])
 
     def score(self):
         """ Calcule le score de la main du joueur. """
@@ -71,6 +72,7 @@ class Croupier(Joueur):
     """ Définie le comportement du croupier """
     def __init__(self, argent, niveau):
         super().__init__("Croupier", argent)
+        self.memoire_cartes = []
         self.niveau = niveau
 
     def __str__(self):
@@ -78,6 +80,17 @@ class Croupier(Joueur):
         for carte in self.cartes:
             main += f" {carte}"
         return f"{self.nom} :{main} => {self.score()} | argent : {self.argent}"
+
+    def regarde_cartes(self):
+        """ Garde en mémoire les dernières cartes jouées """
+        carte_table = []
+        for j in liste_joueurs:
+            carte_table.extend(j.cartes)
+        carte_table.extend(self.cartes)
+
+        self.memoire_cartes.append(carte_table)
+        if len(self.memoire_cartes) > self.niveau:
+            self.memoire_cartes.pop(0)
 
     def pioche_intelligente(self):
         """ Détermine si le Croupier doit piocher une carte ou non """
@@ -105,14 +118,10 @@ class Croupier(Joueur):
             """ calcule les gains moyens possibles de gagner en piochant une carte """
             total_cartes = 52 * NB_PAQUETS
             cartes_possibles = [4 * NB_PAQUETS for i in range(13)]
-            for j in liste_joueurs:
-                for carte in j.cartes:
-                    cartes_possibles[carte.valeur - 1] -= 1
-                    total_cartes -= 1
 
-            for carte in self.cartes:
-                cartes_possibles[carte.valeur - 1] -= 1
-                total_cartes -= 1
+            for tour, cartes_tour in enumerate(self.memoire_cartes):
+                for carte in cartes_tour:
+                    cartes_possibles[carte.valeur - 1] -= 1
 
             if carte_piochee != -1:
                 cartes_possibles[carte_piochee] -= 1
@@ -139,38 +148,51 @@ class Croupier(Joueur):
                 rv_esperence_gains += gains * (nombre / total_cartes)
             return rv_esperence_gains
 
-        # Boucle principale de la fonction:
-        while True:
-            if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
-                return
+        def raisonnement_esperence():
+            while True:
+                if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
+                    return
 
-            possede_as = False
-            score_sans_as = 0
-            for carte in self.cartes:
-                if carte.score() == 1:
-                    possede_as = True
-                else:
-                    score_sans_as += carte.score()
-            if score_sans_as > 11:
                 possede_as = False
+                score_sans_as = 0
+                for carte in self.cartes:
+                    if carte.score() == 1:
+                        possede_as = True
+                    else:
+                        score_sans_as += carte.score()
+                if score_sans_as > 11:
+                    possede_as = False
 
-            if esperence_gains(self.score(), possede_as) >= calcule_gains(self.score()):
+                if esperence_gains(self.score(), possede_as) >= calcule_gains(self.score()):
+                    self.pioche_carte()
+                else:
+                    return
+
+        if self.niveau == 0:
+            while self.score() < 17:
                 self.pioche_carte()
-            else:
-                return
+            if self.score() in [17, 18] and randint(0, 2) == 0:
+                self.pioche_carte()
 
+        elif self.niveau >= 1:
+            raisonnement_esperence()
 
-def paquet():
-    """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
-    cartes = []
-    for couleur in range(4):
-        for valeur in range(1, 14):
-            cartes.append(Carte(valeur, couleur))
-    return cartes
+        else:  # Niveau négatif = mode triche, parce que pourquoi pas
+            while self.score() + pioche[0].valeur <= 21:
+                self.pioche_carte()
 
 
 def init_pioche():
     """ Initialise la pioche en mélangeant les paquets de cartes. """
+
+    def paquet():
+        """ Créé un paquet standard de 52 cartes sous la forme d'une liste de tuples. """
+        cartes = []
+        for couleur in range(4):
+            for valeur in range(1, 14):
+                cartes.append(Carte(valeur, couleur))
+        return cartes
+
     rv_pioche = []
     for _ in range(NB_PAQUETS):
         rv_pioche.extend(sample(paquet(), k=52))
@@ -235,6 +257,18 @@ def tour_joueur(j):
                 return
 
 
+def verifie_memoire(carte_verifier):
+    """ retire les cartes en mémoire des bots si elle vient d'être pioché """
+    # TODO: Faire la manipe pour les bots une fois qu'il existent
+    tours_supprimer = []
+    for tour, cartes_tour in enumerate(croupier.memoire_cartes):
+        if carte_verifier in cartes_tour:
+            tours_supprimer.append(tour)
+
+    for tour in tours_supprimer:
+        croupier.memoire_cartes.pop(tour)
+
+
 def regler_mises():
     """ Règle les comptes en fin de partie """
     print("-------------")
@@ -259,6 +293,15 @@ def regler_mises():
             print(f"Égalité entre {j.nom} et le croupier")
 
 
+def remplir_pioche():
+    """ Récupère les cartes sur la table, les mélangent et les ajoute à la fin de la pioche """
+    cartes_recuperees = []
+    for j in liste_joueurs:
+        cartes_recuperees.extend(j.cartes)
+    cartes_recuperees.extend(croupier.cartes)
+    pioche.extend(sample(cartes_recuperees, k=len(cartes_recuperees)))
+
+
 if __name__ == "__main__":
     # Initialisation:
     pioche = init_pioche()
@@ -277,6 +320,7 @@ if __name__ == "__main__":
                 tour_joueur(joueur)
 
         croupier.pioche_carte()
+        croupier.regarde_cartes()
         croupier.pioche_intelligente()
         print(croupier)
         regler_mises()
@@ -291,5 +335,4 @@ if __name__ == "__main__":
             liste_joueurs.remove(joueur)
         croupier.cartes.clear()
 
-        if len(pioche) <= (NB_PAQUETS - 1) * 52:
-            pioche.extend(sample(paquet(), k=52))
+        remplir_pioche()
