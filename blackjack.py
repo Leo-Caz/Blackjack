@@ -1,5 +1,6 @@
 #!/bin/env python3
 from random import sample, randint
+from copy import deepcopy
 
 MISE_MIN = 10
 MISE_MAX = 1000
@@ -31,6 +32,10 @@ class Joueur:
         self.argent = argent
         self.mise = 0
         self.blackjack = False
+        self.assurance = False
+        self.nb_splits = 0
+        self.split = False
+        self.clone = None
 
     def __str__(self):
         main = ""
@@ -43,6 +48,23 @@ class Joueur:
         for _ in range(nb_cartes):
             self.cartes.append(pioche.pop(0))
             verifie_memoire(self.cartes[-1])
+
+    def double(self):
+        """ pioche une carte et double la mise du joueur """
+        self.pioche_carte()
+        self.mise *= 2
+
+    def possede_paire(self):
+        """ Regarde si un joueur possede une paire de cartes """
+        cartes_valeurs = []
+        for carte in self.cartes:
+            cartes_valeurs.append(carte.valeur)
+
+        cartes_valeurs.sort()
+        for i in range(len(cartes_valeurs) - 1):
+            if cartes_valeurs[i] == cartes_valeurs[i + 1]:
+                return True
+        return False
 
     def score(self):
         """ Calcule le score de la main du joueur. """
@@ -210,29 +232,104 @@ def init_joueurs(nombre, argent):
 
 def premier_tour():
     """ Demande la mise et fait piocher les deux premières cartes à chaque joueur. """
-    joueurs_partis = []
-    for j in liste_joueurs:
-        mise_valide = False
-        while not mise_valide:
+
+    def creer_split(id_joueur, j):  # FIXME: Rendre la gestion des joueurs temporaires propre
+        """ créé les objest joueurs temporaires en cas de splits """
+        while True:
+            reponse = input("Vous avez une paire, voulez-vous faire un split? (oui/non) ")
+            if reponse == "oui":
+                # Créer le joueur temporaire:
+                # print("uuu")
+                if j.split is True:
+                    j.clone.nb_splits += 1
+                else:
+                    j.nb_splits += 1
+
+                j_split = deepcopy(j)
+                j_split.clone = j
+                liste_joueurs.insert(id_joueur + 1, j_split)
+                j_split.nom = f"{j.nom}_split{j_split.clone.nb_splits}"
+                j_split.split = True
+
+                # Remplacer une des carte de la paire par une autre carte
+                j.cartes.pop(1)
+                j.pioche_carte()
+                print(j)
+                # Reproposer un split dans le cas où on repioche une paire
+                if j.split is True:
+                    if j.clone.nb_splits <= 1 and j.possede_paire():
+                        # print("prout 1")
+                        creer_split(id_joueur, j)
+
+                else:
+                    if j.nb_splits <= 1 and j.possede_paire():
+                        # print("prout 2")
+                        creer_split(id_joueur, j)
+
+                # Remplacer une des carte de la paire par une autre carte
+                j_split.cartes.pop(0)
+                j_split.pioche_carte()
+                print(j_split)
+                # Reproposer un split dans le cas où on repioche une paire
+                if j_split.possede_paire() and j_split.clone.nb_splits <= 1:
+                    # print("prout 3")
+                    creer_split(id_joueur + 1, j_split)
+                return
+
+            if reponse == "non":
+                return
+
+    def demande_mise(j, rv_joueurs_partis):
+        """ demande joueurs la mise et leur propose de quitter la table """
+        rv_joueurs_partis = []
+        while True:
             print(f"{j.nom}: misez de l'argent (entre {MISE_MIN}€ et {MISE_MAX}€)")
             mise = int(input(f"vous avez {j.argent}€ (misez 0 pour quitter la table) : "))
             if MISE_MIN <= mise <= MISE_MAX:
-                mise_valide = True
+                j.mise = mise
+                return rv_joueurs_partis
 
-            elif mise == 0:
+            if mise == 0:
                 print(f"{j.nom} a quitté la table.")
                 joueurs_partis.append(j)
-                mise_valide = True
+                return rv_joueurs_partis
 
-        j.mise = mise
-        j.pioche_carte(2)
-        print(j)
-        print(" ")
 
-        if j.score() == 21:
-            print("Vous avez gagné!!")
-            j.blackjack = True
+    def demande_assurance(j):
+        """ Demande aux joueurs si il veulent une assurance """
+        while True:
+            reponse = input("Le croupier à un as, miser une assurance? (oui/non) ")
+            if reponse == "oui":
+                j.assurance = True
+                return
+            if reponse == "non":
+                j.assurance = False
+                return
 
+    # On demande la mise et propose au joueur de quitter la table:
+    joueurs_partis = []
+    for id_joueur, j in enumerate(liste_joueurs):
+        if j.split is False:
+            demande_mise(j, joueurs_partis)
+
+            j.pioche_carte(2)
+            print(j)
+
+            # Le joueur a un blackjack:
+            if j.score() == 21:
+                print("Vous avez gagné!!")
+                j.blackjack = True
+
+            # Le croupier a un blackjack et on propose une assurance au joueur:
+            if croupier.cartes[0].valeur == 1:
+                demande_assurance(j)
+
+            # Le croupier a une paire et on propose un split:
+            if j.possede_paire():
+                creer_split(id_joueur, j)
+            print(" ")
+
+    # On retire les joueurs qui ont dessidé de partir
     for j in joueurs_partis:
         liste_joueurs.remove(j)
 
@@ -241,10 +338,17 @@ def tour_joueur(j):
     """ Effectue le tour de chaque joueur """
     print("-------------")
     print(f"Tour de {j.nom} :\n{j}")
+    print(" • Liste des actions:")
+    print(" • pioche: pioche une carte")
+    print(" • rester: passe au joueur suivant")
+    print(" • double: pioche une carte, double la mise et passe au joueur suivant")
+    print(" -> (seulement si le score du joueur est 9, 10 ou 11)")
 
-    reponse = ""
-    while reponse != "stop":
-        reponse = input("Voulez-vous piocher une carte (pioche) ou arrêter de jouer (stop)? : ")
+    while True:
+        reponse = input("Quelle est votre action? ")
+
+        if reponse == "rester":
+            return
 
         if reponse == "pioche":
             j.pioche_carte()
@@ -255,6 +359,11 @@ def tour_joueur(j):
             if j.score() == 0:
                 print("Vous avez perdu!!")
                 return
+
+        elif reponse == "double" and 9 <= j.score() <= 11:
+            j.double()
+            print(j)
+            return
 
 
 def verifie_memoire(carte_verifier):
@@ -271,8 +380,14 @@ def verifie_memoire(carte_verifier):
 
 def regler_mises():
     """ Règle les comptes en fin de partie """
-    print("-------------")
-    for j in liste_joueurs:
+
+    def payer(j):
+        if j.assurance is True:
+            if croupier.blackjack is True:
+                j.argent += j.mise
+            else:
+                j.argent -= j.mise / 2
+
         if j.blackjack is True:
             j.mise = round(j.mise * 1.5)
             j.argent += j.mise
@@ -292,6 +407,19 @@ def regler_mises():
         else:  # en cas d'égalité
             print(f"Égalité entre {j.nom} et le croupier")
 
+    print("-------------")
+    ordre_66 = []
+    for j in liste_joueurs:
+        if j.split is False:
+            payer(j)
+
+        else:
+            payer(j.clone)
+            ordre_66.append(j)
+
+    for j in ordre_66:
+        liste_joueurs.remove(j)
+
 
 def remplir_pioche():
     """ Récupère les cartes sur la table, les mélangent et les ajoute à la fin de la pioche """
@@ -305,9 +433,14 @@ def remplir_pioche():
 if __name__ == "__main__":
     # Initialisation:
     pioche = init_pioche()
+    ## debut test:
+    for _ in range(2):
+        pioche.insert(1, Carte(4, 0))
+    ## fin test
     nb_joueurs = int(input("Entrez le nombre de joueurs : "))
     liste_joueurs = init_joueurs(nb_joueurs, 1000)
     croupier = Croupier(10000, 1)
+    croupier.niveau = int(input("entrez le niveau du croupier (un entier) : "))
 
     # Boucle principale:
     while len(liste_joueurs) > 0 or croupier.argent < MISE_MIN:
@@ -320,6 +453,9 @@ if __name__ == "__main__":
                 tour_joueur(joueur)
 
         croupier.pioche_carte()
+        if croupier.score() == 21:
+            croupier.blackjack = True
+
         croupier.regarde_cartes()
         croupier.pioche_intelligente()
         print(croupier)
