@@ -324,6 +324,11 @@ def premier_tour():
 
     def demande_mise(j):
         """ demande joueurs la mise et leur propose de quitter la table """
+
+        if isinstance(j, Bot):
+            if j.niveau != 0:
+                return
+
         while True:
             print(f"{j.nom}: misez de l'argent (entre {MISE_MIN}€ et {MISE_MAX}€)")
             mise = int(input(f"vous avez {j.argent}€ (misez 0 pour quitter la table) : "))
