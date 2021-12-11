@@ -107,16 +107,75 @@ class Bot(Joueur):
     def __init__(self, nom, argent, niveau):
         super().__init__(nom, argent)
         self.mise = 100
+        self.memoire_cartes = []
         self.niveau = niveau
+
+    def regarde_cartes(self):
+        """ Garde en mémoire les dernières cartes jouées """
+        carte_table = []
+        for j in liste_joueurs:
+            carte_table.extend(j.cartes)
+        carte_table.extend(self.cartes)
+
+        self.memoire_cartes.append(carte_table)
+        if len(self.memoire_cartes) > self.niveau:
+            self.memoire_cartes.pop(0)
 
     def pioche_intelligente(self):
         """ Permet au bot de piocher de façon intelligente """
+
+        def valeur_carte(carte):
+            """ renvoie la valeur d'une carte """
+            return min(carte, 10)
+
+        def calcule_proba(score, recurence = False, carte_piochee = -1):
+            total_cartes = 52 * NB_PAQUETS
+            cartes_possibles = [4 * NB_PAQUETS for _ in range(13)]
+
+            for tour, cartes_tour in enumerate(self.memoire_cartes):
+                for carte in cartes_tour:
+                    cartes_possibles[carte.valeur - 1] -= 1
+                    total_cartes -= 1
+
+            if carte_piochee != -1:
+                cartes_possibles[carte_piochee] -= 1
+                total_cartes -= 1
+
+            proba_depasse = 0
+            for carte, nombre in enumerate(cartes_possibles):
+                score_carte = valeur_carte(carte + 1)
+                # Score > 21
+                if self.score() + score_carte > 21:
+                    # Score > 21 pour la première fois et on a au moins un as qui vaut 11
+                    if self.possede_as() and recurence is False:
+                        prochain_score = score + score_carte - 10
+                        proba_depasse += calcule_proba(prochain_score, True, carte) / total_cartes
+
+                    # Score > 21 et on peut rien y faire
+                    else:
+                        proba_depasse += nombre / total_cartes
+
+            return proba_depasse
+        
+        def raisonnement_proba():
+            while True:
+                if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
+                    return
+
+                if calcule_proba(self.score()) < 0.5:
+                    self.pioche_carte()
+                else:
+                    return
+
         if self.niveau == 0:
             while self.score() <= 17:
                 self.pioche_carte()
             if self.score() in [17, 18] and randint(0, 2) == 0:
                 self.pioche_carte()
             return
+
+        if self.niveau > 0:
+            raisonnement_proba()
 
         if self.niveau < 0:
             carte_future = []
@@ -183,14 +242,16 @@ class Croupier(Joueur):
         def esperence_gains(score, recurence = False, carte_piochee = -1):
             """ calcule les gains moyens possibles de gagner en piochant une carte """
             total_cartes = 52 * NB_PAQUETS
-            cartes_possibles = [4 * NB_PAQUETS for i in range(13)]
+            cartes_possibles = [4 * NB_PAQUETS for _ in range(13)]
 
             for tour, cartes_tour in enumerate(self.memoire_cartes):
                 for carte in cartes_tour:
                     cartes_possibles[carte.valeur - 1] -= 1
+                    total_cartes -= 1
 
             if carte_piochee != -1:
                 cartes_possibles[carte_piochee] -= 1
+                total_cartes -= 1
 
             rv_esperence_gains = 0
             for carte, nombre in enumerate(cartes_possibles):
