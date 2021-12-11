@@ -234,8 +234,19 @@ class Croupier(Joueur):
             raisonnement_esperence()
 
         else:  # Niveau négatif = mode triche, parce que pourquoi pas
-            while self.score() + pioche[0].score() <= 21:
-                self.pioche_carte()
+            carte_future = []
+            score_max = self.score()
+            i_max = 0
+            i = 0
+            while 0 < self.score(carte_future) <= 21:
+                print(self.score(carte_future))
+                carte_future.append(pioche[i])
+                if score_max <= self.score(carte_future):
+                    score_max = self.score(carte_future)
+                    i_max = i + 1
+                i += 1
+            self.pioche_carte(i_max)
+            return
 
 
 def init_pioche():
