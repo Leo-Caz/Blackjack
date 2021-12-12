@@ -4,7 +4,8 @@ from copy import deepcopy
 
 MISE_MIN = 10
 MISE_MAX = 1000
-NB_PAQUETS = 4
+ARGENT_JOUEUR_DEPART = 2000
+ARGENT_CROUPIER_DEPART = 100000
 
 
 class Carte:
@@ -108,6 +109,7 @@ class Bot(Joueur):
         self.memoire_cartes = []
         self.niveau = niveau
         self.opti_mise = opti_mise  # FIXME: virer ce nom de merde
+        self.argent_precedent = self.argent
 
     def regarde_cartes(self):
         """ Garde en mémoire les dernières cartes jouées """
@@ -352,12 +354,12 @@ def init_pioche():
     return rv_pioche
 
 
-def init_joueurs(nombre_joueurs, nombre_bots, argent):
+def init_joueurs(nombre_joueurs, nombre_bots):
     """ Créé les différentes instances des joueurs. """
     rv_liste_joueurs = []
     for i in range(nombre_joueurs):
         nom = str(input(f"Entrez le nom du joueur #{i+1} : "))
-        rv_liste_joueurs.append(Joueur(nom, argent))
+        rv_liste_joueurs.append(Joueur(nom, ARGENT_JOUEUR_DEPART))
 
     for i in range(nombre_bots):
         nom = str(input(f"Entrez le nom du bot #{i+1} : "))
@@ -372,7 +374,7 @@ def init_joueurs(nombre_joueurs, nombre_bots, argent):
             if reponse == "non":
                 opti_mise = False
                 break
-        rv_liste_joueurs.append(Bot(nom, argent, niveau, opti_mise))
+        rv_liste_joueurs.append(Bot(nom, ARGENT_JOUEUR_DEPART, niveau, opti_mise))
     return rv_liste_joueurs
 
 
@@ -458,10 +460,12 @@ def premier_tour():
 
     def demande_mise(j):
         """ demande joueurs la mise et leur propose de quitter la table """
+        def clamp_mise(val):
+            return max(min(val, MISE_MAX), MISE_MIN)
 
         if isinstance(j, Bot):
-            if j.niveau != 0:
-                return
+            j.mise = clamp_mise(round(j.argent * 0.05))
+            return
 
         while True:
             print(f"{j.nom}: misez de l'argent (entre {MISE_MIN}€ et {MISE_MAX}€)")
@@ -497,10 +501,7 @@ def premier_tour():
     # On demande la mise et propose au joueur de quitter la table:
     for id_joueur, j in enumerate(liste_joueurs):
         if j.split is False:
-            if isinstance(j, Bot):
-                j.mise = 100
-            else:
-                demande_mise(j)
+            demande_mise(j)
 
             j.pioche_carte(2)
             print(j)
@@ -619,13 +620,12 @@ def remplir_pioche():
 
 if __name__ == "__main__":
     # Initialisation:
-    pioche = init_pioche()
     nb_joueurs = int(input("Entrez le nombre de joueurs humains : "))
     nb_bots = int(input("Entrez le nombre de bots : "))
-    liste_joueurs = init_joueurs(nb_joueurs, nb_bots, 1000)
-    if len(liste_joueurs) > 4:
-        NB_PAQUETS *= 2
-    croupier = Croupier(10000, 1)
+    liste_joueurs = init_joueurs(nb_joueurs, nb_bots)
+    NB_PAQUETS = 4 * ((len(liste_joueurs) // 4) + 1)
+    pioche = init_pioche()
+    croupier = Croupier(ARGENT_CROUPIER_DEPART, 1)
     croupier.niveau = int(input("entrez le niveau du croupier (un entier) : "))
     ordre_66 = []
     joueurs_partis = []
