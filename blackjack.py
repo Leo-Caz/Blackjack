@@ -1,15 +1,18 @@
 #!/bin/env python3
 from random import sample, randint
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 MISE_MIN = 10
 MISE_MAX = 1000
 ARGENT_JOUEUR_DEPART = 2000
 ARGENT_CROUPIER_DEPART = 100000
 
+HIT_SOFT_17 = False  # accorde un avantage au croupier si vrai
+NB_PAQUETS = 6  # 1 à 8, typiquement 6 en France
 
 class Carte:
-    """ Définie le fonctionnement des cartes """
+    """ Définit le fonctionnement des cartes """
     VALEURS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R")
     COULEURS = list("♠♣♥♦")
 
@@ -26,11 +29,13 @@ class Carte:
 
 
 class Joueur:
-    """ Définie les méthodes et propriétés des joueurs """
+    """ Définit le comportement des joueurs """
+
     def __init__(self, nom, argent):
         self.nom = nom
         self.cartes = []
         self.argent = argent
+        self.liste_argent = [argent]
         self.mise = 0
         self.assurance = False
         self.split = False
@@ -49,11 +54,12 @@ class Joueur:
             verifie_memoire(self.cartes[-1])
 
     def double(self):
-        """ pioche une carte et double la mise du joueur """
+        """ Pioche une carte et double la mise du joueur """
         self.pioche_carte()
         self.mise *= 2
 
     def possede_as(self):
+        """ Vrai si le joueur possede un as pouvant être compté comme 11 """
         rv_possede_as = False
         score_sans_as = 0
         for carte in self.cartes:
@@ -77,16 +83,21 @@ class Joueur:
                 return True
         return False
 
-    def score(self, carte_bonus = []):
+    def score(self, carte_bonus = None):
         """ Calcule le score de la main du joueur. """
-        scores_possibles = [0]
 
         def incremente(liste, val):
             """ Ajoute la valeur de la carte à tous les scores possibles """
             for i in range(len(liste)):
                 liste[i] += val
 
-        for carte in self.cartes + carte_bonus:
+        if carte_bonus is not None:
+            total_cartes = self.cartes + carte_bonus
+        else:
+            total_cartes = self.cartes
+
+        scores_possibles = [0]
+        for carte in total_cartes:
             if carte.score() != 1:
                 incremente(scores_possibles, carte.score())
             else:  # la carte est un as, deux possibilités de score: 1 ou 11
@@ -98,11 +109,12 @@ class Joueur:
         for score in sorted(scores_possibles, reverse=True):
             if score <= 21:
                 return score
-        return 0 # valeur arbitraire en cas de défaite
+        return 0  # valeur arbitraire en cas de défaite
 
 
 class Bot(Joueur):
-    """ Décris le fonctionnement des bots """
+    """ Décrit le fonctionnement des bots """
+
     def __init__(self, nom, argent, niveau, opti_mise):
         super().__init__(nom, argent)
         self.mise = 100
@@ -126,10 +138,9 @@ class Bot(Joueur):
         """ Permet au bot de piocher de façon intelligente """
 
         def valeur_carte(carte):
-            """ renvoie la valeur d'une carte """
             return min(carte, 10)
 
-        def calcule_proba(score, recurence = False, carte_piochee = -1):
+        def calcul_proba(score, recurrence = False, carte_piochee = -1):
             total_cartes = 52 * NB_PAQUETS
             cartes_possibles = [4 * NB_PAQUETS for _ in range(13)]
 
@@ -148,9 +159,9 @@ class Bot(Joueur):
                 # Score > 21
                 if self.score() + score_carte > 21:
                     # Score > 21 pour la première fois et on a au moins un as qui vaut 11
-                    if self.possede_as() and recurence is False:
+                    if self.possede_as() and recurrence is False:
                         prochain_score = score + score_carte - 10
-                        proba_depasse += calcule_proba(prochain_score, True, carte) / total_cartes
+                        proba_depasse += calcul_proba(prochain_score, True, carte) / total_cartes
 
                     # Score > 21 et on peut rien y faire
                     else:
@@ -158,17 +169,7 @@ class Bot(Joueur):
 
             return proba_depasse
 
-        def raisonnement_proba():
-            while True:
-                if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
-                    return
-
-                if calcule_proba(self.score()) < 0.5:
-                    self.pioche_carte()
-                else:
-                    return
-
-        def double_retable():
+        def double_rentable():
             """ Determine si faire un double est rentable ou non """
             if self.possede_as():
                 if self.score() == 13 and 5 <= croupier.score() <= 6:
@@ -181,28 +182,35 @@ class Bot(Joueur):
                     return True
                 if self.score() == 19 and croupier.score() == 6:
                     return True
-
             if self.score() == 9 and 2 <= croupier.score() <= 6:
                 return True
             if self.score() == 10 and 2 <= croupier.score() <= 9:
                 return True
             if self.score() == 11:
                 return True
+            return False
 
-        if self.niveau == 0:
-            while self.score() <= 17:
+        if self.niveau == 0:  # martingale du croupier
+            while 0 < self.score() < 17:
                 self.pioche_carte()
-            if self.score() in [17, 18] and randint(0, 2) == 0:
+            if HIT_SOFT_17 and self.score() == 17 and self.possede_as():
                 self.pioche_carte()
             return
 
-        if self.niveau > 0:
-            if double_retable():
+        if self.niveau > 0:  # bot honnête mais intelligent
+            if double_rentable():
                 self.double()
                 return
-            raisonnement_proba()
+            while True:
+                # pioche tant que plus de chances d'augmenter le score sans dépasser 21
+                if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
+                    return
+                if calcul_proba(self.score()) < 0.5:
+                    self.pioche_carte()
+                else:
+                    return
 
-        if self.niveau < 0:
+        if self.niveau < 0:  # bot tricheur sans honneur (salauds de bots)
             if 19 <= self.score([pioche[0]]) <= 21:
                 self.double()
                 return
@@ -222,7 +230,8 @@ class Bot(Joueur):
 
 
 class Croupier(Joueur):
-    """ Définie le comportement du croupier """
+    """ Définit le comportement du croupier """
+
     def __init__(self, argent, niveau):
         super().__init__("Croupier", argent)
         self.memoire_cartes = []
@@ -248,7 +257,7 @@ class Croupier(Joueur):
     def pioche_intelligente(self):
         """ Détermine si le Croupier doit piocher une carte ou non """
 
-        def calcule_gains(score_croupier):
+        def calcul_gains(score_croupier):
             """ Calcule les gains du Croupier suivant un score donné """
             rv_gains = 0
             for j in liste_joueurs:
@@ -267,7 +276,7 @@ class Croupier(Joueur):
             """ renvoie la valeur d'une carte """
             return min(carte, 10)
 
-        def esperence_gains(score, recurence = False, carte_piochee = -1):
+        def esperance_gains(score, recurrence = False, carte_piochee = -1):
             """ calcule les gains moyens possibles de gagner en piochant une carte """
             total_cartes = 52 * NB_PAQUETS
             cartes_possibles = [4 * NB_PAQUETS for _ in range(13)]
@@ -281,46 +290,46 @@ class Croupier(Joueur):
                 cartes_possibles[carte_piochee] -= 1
                 total_cartes -= 1
 
-            rv_esperence_gains = 0
+            rv_esperance_gains = 0
             for carte, nombre in enumerate(cartes_possibles):
                 score_carte = valeur_carte(carte + 1)
                 # On pioche un as qui vaut 11 et score + as <= 21
                 if score_carte == 1 and score + 11 <= 21:
-                    gains = calcule_gains(score + 11)
+                    gains = calcul_gains(score + 11)
 
                 # Le score avec la nouvelle carte ne dépasse pas 21 (as = 1)
                 elif score + score_carte < 21:
-                    gains = calcule_gains(score + score_carte)
+                    gains = calcul_gains(score + score_carte)
 
                 # Score > 21 pour la première fois et on a au moins un as qui vaut 11
-                elif self.possede_as() and recurence is False:
+                elif self.possede_as() and recurrence is False:
                     prochain_score = score + score_carte - 10
-                    gains = esperence_gains(prochain_score, True, carte)
+                    gains = esperance_gains(prochain_score, True, carte)
 
                 # Score > 21 et on peut rien y faire
                 else:
                     gains = 0
-                rv_esperence_gains += gains * (nombre / total_cartes)
-            return rv_esperence_gains
+                rv_esperance_gains += gains * (nombre / total_cartes)
+            return rv_esperance_gains
 
-        def raisonnement_esperence():
+        def raisonnement_esperance():
             while True:
                 if (self.score() == 0 and len(self.cartes) > 0) or self.score() == 21:
                     return
-
-                if esperence_gains(self.score()) >= calcule_gains(self.score()):
+                if esperance_gains(self.score()) >= calcul_gains(self.score()):
                     self.pioche_carte()
                 else:
                     return
 
-        if self.niveau == 0:
-            while self.score() < 17:
+        if self.niveau == 0:  # martingale du croupier
+            while 0 < self.score() < 17:
                 self.pioche_carte()
-            if self.score() in [17, 18] and randint(0, 2) == 0:
+            if HIT_SOFT_17 and self.score() == 17 and self.possede_as():
                 self.pioche_carte()
+            return
 
-        elif self.niveau >= 1:
-            raisonnement_esperence()
+        if self.niveau >= 1:
+            raisonnement_esperance()
 
         else:  # Niveau négatif = mode triche, parce que pourquoi pas
             carte_future = []
@@ -381,10 +390,10 @@ def init_joueurs(nombre_joueurs, nombre_bots):
 def premier_tour():
     """ Demande la mise et fait piocher les deux premières cartes à chaque joueur. """
 
-    def logique_split(id_joueur, j, recurence = False):
+    def logique_split(id_joueur, j, recurrence = False):
         """ créé les objest joueurs temporaires en cas de splits """
 
-        def creer_split(id_joueur, j, recurence = False):
+        def creer_split(id_joueur, j, recurrence = False):
             # Créer le joueur temporaire:
             j_split = deepcopy(j)
             j_split.clone = j
@@ -405,14 +414,14 @@ def premier_tour():
             print(j_split)
 
             # Reproposer un split dans le cas où l'original repioche une paire
-            if j.possede_paire() and not recurence and not j.possede_as():
-                recurence = True
-                logique_split(id_joueur, j, recurence)
+            if j.possede_paire() and not recurrence and not j.possede_as():
+                recurrence = True
+                logique_split(id_joueur, j, recurrence)
 
             # Reproposer un split dans le cas où le split repioche une paire
-            if j_split.possede_paire() and not recurence and not j_split.possede_as():
-                recurence = True
-                logique_split(id_joueur + 1, j_split, recurence)
+            if j_split.possede_paire() and not recurrence and not j_split.possede_as():
+                recurrence = True
+                logique_split(id_joueur + 1, j_split, recurrence)
 
         class TS:
             """ Enum pour la table de décision """
@@ -437,7 +446,7 @@ def premier_tour():
                 ligne = j.cartes[0].score() - 1
                 colonne = croupier.cartes[0].score() - 1
                 if table_decision[ligne][colonne] == TS.S:
-                    creer_split(id_joueur, j, recurence)
+                    creer_split(id_joueur, j, recurrence)
                     return
 
                 if table_decision[ligne][colonne] == TS.P:
@@ -445,14 +454,14 @@ def premier_tour():
                     return
 
             else:
-                creer_split(id_joueur, j, recurence)
+                creer_split(id_joueur, j, recurrence)
                 return
 
         else:
             while True:
                 reponse = input("Vous avez une paire, voulez-vous faire un split? (oui/non) ")
                 if reponse == "oui":
-                    creer_split(id_joueur, j, recurence)
+                    creer_split(id_joueur, j, recurrence)
                     return
 
                 if reponse == "non":
@@ -490,7 +499,7 @@ def premier_tour():
 
         # Pour les joueurs humains:
         while True:
-            reponse = input("Le croupier à un as, miser une assurance? (oui/non) ")
+            reponse = input("Le croupier a un as, miser une assurance? (oui/non) ")
             if reponse == "oui":
                 j.assurance = True
                 return
@@ -498,7 +507,7 @@ def premier_tour():
                 j.assurance = False
                 return
 
-    # On demande la mise et propose au joueur de quitter la table:
+    # On demande la mise et propose au joueur de quitter la table
     for id_joueur, j in enumerate(liste_joueurs):
         if j.split is False:
             demande_mise(j)
@@ -510,7 +519,6 @@ def premier_tour():
             if j.score() == 21 and len(j.cartes) == 2:
                 print("Blackjack!!")
 
-
             # Le croupier a un as et on propose une assurance au joueur:
             if croupier.cartes[0].valeur == 1:
                 demande_assurance(j)
@@ -520,7 +528,7 @@ def premier_tour():
                 logique_split(id_joueur, j)
             print(" ")
 
-    # On retire les joueurs qui ont dessidé de partir
+    # On retire les joueurs qui ont décidé de partir
     for j in ordre_66:
         liste_joueurs.remove(j)
 
@@ -529,11 +537,11 @@ def tour_joueur(j):
     """ Effectue le tour de chaque joueur """
     print("-------------")
     print(f"Tour de {j.nom} :\n{j}")
-    print(" • Liste des actions:")
+    print("Liste des actions:")
     print(" • pioche: pioche une carte")
     print(" • rester: passe au joueur suivant")
     print(" • double: pioche une carte, double la mise et passe au joueur suivant")
-    print(" -> (seulement le premier tour)")
+    print("    \\-> (seulement le premier tour)")
 
     while True:
         reponse = input("Quelle est votre action? ")
@@ -599,6 +607,7 @@ def regler_mises():
 
     print("-------------")
     for j in liste_joueurs:
+        j.liste_argent.append(j.argent)
         if j.split is False:
             payer(j, j)
 
@@ -623,15 +632,14 @@ if __name__ == "__main__":
     nb_joueurs = int(input("Entrez le nombre de joueurs humains : "))
     nb_bots = int(input("Entrez le nombre de bots : "))
     liste_joueurs = init_joueurs(nb_joueurs, nb_bots)
-    NB_PAQUETS = 4 * ((len(liste_joueurs) // 4) + 1)
     pioche = init_pioche()
     croupier = Croupier(ARGENT_CROUPIER_DEPART, 1)
     croupier.niveau = int(input("entrez le niveau du croupier (un entier) : "))
     ordre_66 = []
     joueurs_partis = []
-    tour = 0
 
     # Boucle principale:
+    tour = 0
     while len(liste_joueurs) > 0 and croupier.argent > MISE_MIN:
         tour += 1
         print("___________________________")
@@ -673,6 +681,9 @@ if __name__ == "__main__":
     print("___________________________")
     for joueur, tour_perdu, motif in joueurs_partis:
         print(f"{joueur.nom} a {motif} au tour {tour_perdu} avec {joueur.argent}€")
+        plt.plot(range(tour_perdu + 1), joueur.liste_argent)
     print("___________________________")
     for joueur in liste_joueurs:
         print(f"{joueur.nom} a battu le croupier après {tour} tours et a {joueur.argent}€")
+        plt.plot(range(tour + 1), joueur.liste_argent)
+    plt.show()
